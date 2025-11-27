@@ -16,12 +16,12 @@ export default defineConfig({
         theme_color: '#ffffff',
         icons: [
           {
-            src: '512x512.png',
+            src: 'SeoulSki.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: '512x512.png', // 重複使用 512 的圖
+            src: 'SeoulSki.png', // 重複使用 512 的圖
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable' // ★ 關鍵：這行讓 Android 知道這張圖可以被裁切成圓形
