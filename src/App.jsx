@@ -854,7 +854,7 @@ const App = () => {
                   title="住宿資訊"
                   content="Fraser Place Central Seoul"
                   subContent='地址: 78, Tongil-ro, Jung District, Seoul | 電話: +82 2-2220-8888
-                  入住: 2026/01/28 15:00 | 退房: 2026/02/02 11:00'
+入住: 2026/01/28 15:00 | 退房: 2026/02/02 11:00'
                   colorClass="bg-green-500 text-green-500"
                   ></InfoCard>
                 <InfoCard 
