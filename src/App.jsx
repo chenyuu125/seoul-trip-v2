@@ -616,7 +616,6 @@ const InfoCard = ({ icon: Icon, title, content, subContent, colorClass }) => (
     <div>
       <h4 className="font-bold text-stone-800 mb-1">{title}</h4>
       <p className="text-stone-600 text-sm mb-1">{content}</p>
-      {subContent && <p className="text-stone-400 text-xs">{subContent}</p>}
       {subContent && (
         <p className="text-stone-400 text-xs whitespace-pre-wrap">
           {subContent}
@@ -854,7 +853,8 @@ const App = () => {
                   icon={Bed}
                   title="住宿資訊"
                   content="Fraser Place Central Seoul"
-                  subContent="地址: 78, Tongil-ro, Jung District, Seoul | 電話: +82 2-2220-8888\n入住: 2026/01/28 15:00 | 退房: 2026/02/02 11:00"
+                  subContent="地址: 78, Tongil-ro, Jung District, Seoul | 電話: +82 2-2220-8888
+                  入住: 2026/01/28 15:00 | 退房: 2026/02/02 11:00"
                   colorClass="bg-green-500 text-green-500"
                   ></InfoCard>
                 <InfoCard 
