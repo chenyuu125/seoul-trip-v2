@@ -860,7 +860,7 @@ const App = () => {
                 <InfoCard 
                   icon={Phone}
                   title="緊急聯絡"
-                  content="外交部旅外救助: +82-10-9093-8738"
+                  content="外交部旅外救助: +82-10-9080-2761"
                   subContent="韓國報警 112 / 火警 119"
                   colorClass="bg-red-500 text-red-500"
                 />
