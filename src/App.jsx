@@ -607,6 +607,21 @@ const BudgetTool = ({ user }) => {
 
 // --- Main App Component ---
 
+
+const InfoCard = ({ icon: Icon, title, content, subContent, colorClass }) => (
+  <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex items-start gap-4">
+    <div className={`p-3 rounded-full ${colorClass} bg-opacity-10 shrink-0`}>
+      <Icon size={20} className={colorClass.replace('bg-', 'text-')} />
+    </div>
+    <div>
+      <h4 className="font-bold text-stone-800 mb-1">{title}</h4>
+      <p className="text-stone-600 text-sm mb-1">{content}</p>
+      {subContent && <p className="text-stone-400 text-xs">{subContent}</p>}
+    </div>
+  </div>
+);
+
+
 const App = () => {
   const [activeTab, setActiveTab] = useState('itinerary');
   const [currentDayIndex, setCurrentDayIndex] = useState(0); 
