@@ -409,14 +409,62 @@ const WeatherWidget = ({ weather, location }) => (
 );
 
 // 3. 更新後的記帳工具：顯示匯率與台幣換算
+// --- Updated Budget Tool with Real-time Rate ---
 const BudgetTool = ({ user }) => {
   const [items, setItems] = useState([]);
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
   const [cat, setCat] = useState('food');
   const [loading, setLoading] = useState(false);
+  
+  // 新增：匯率狀態 (預設給一個大概的值 0.023，避免 API 掛掉時顯示 0)
+  const [exchangeRate, setExchangeRate] = useState(0.023);
+  const [isRateLoading, setIsRateLoading] = useState(true);
 
-  // Fetch expenses
+  // 1. 抓取即時匯率 (含快取機制)
+  useEffect(() => {
+    const fetchRate = async () => {
+      // 檢查 LocalStorage 是否有今天的快取
+      const cachedData = localStorage.getItem('exchange_rate_cache');
+      const today = new Date().toISOString().split('T')[0]; // 取得 "2024-01-28" 格式
+
+      if (cachedData) {
+        const { date, rate } = JSON.parse(cachedData);
+        if (date === today) {
+          console.log("使用快取匯率:", rate);
+          setExchangeRate(rate);
+          setIsRateLoading(false);
+          return;
+        }
+      }
+
+      // 如果沒有快取或過期，則呼叫 API
+      try {
+        console.log("呼叫匯率 API...");
+        const response = await fetch('https://api.frankfurter.app/latest?from=KRW&to=TWD');
+        const data = await response.json();
+        
+        if (data && data.rates && data.rates.TWD) {
+          const newRate = data.rates.TWD;
+          setExchangeRate(newRate);
+          
+          // 存入快取
+          localStorage.setItem('exchange_rate_cache', JSON.stringify({
+            date: today,
+            rate: newRate
+          }));
+        }
+      } catch (error) {
+        console.error("匯率抓取失敗，使用預設值:", error);
+      } finally {
+        setIsRateLoading(false);
+      }
+    };
+
+    fetchRate();
+  }, []);
+
+  // 2. Fetch expenses (原本的邏輯)
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'artifacts', appId, 'users', user.uid, 'expenses');
@@ -465,7 +513,14 @@ const BudgetTool = ({ user }) => {
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100">
         <div className="flex justify-between items-center mb-4">
             <h3 className="text-stone-400 text-xs font-bold uppercase tracking-widest">預算管理 (Budget)</h3>
-            <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-1 rounded">匯率: {KRW_TO_TWD_RATE}</span>
+            
+            {/* 匯率顯示小標籤 */}
+            <div className="flex items-center gap-2">
+              {isRateLoading && <div className="animate-spin w-3 h-3 border-2 border-stone-300 border-t-blue-500 rounded-full"></div>}
+              <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-1 rounded">
+                匯率: {exchangeRate.toFixed(4)}
+              </span>
+            </div>
         </div>
         
         <div className="mb-6">
@@ -473,7 +528,7 @@ const BudgetTool = ({ user }) => {
                 ₩ {total.toLocaleString()}
             </div>
             <div className="text-sm text-stone-400 font-medium mt-1">
-                ≈ NT$ {Math.round(total * KRW_TO_TWD_RATE).toLocaleString()}
+                ≈ NT$ {Math.round(total * exchangeRate).toLocaleString()}
             </div>
         </div>
 
@@ -524,7 +579,8 @@ const BudgetTool = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className={`w-2 h-2 rounded-full ${
                 item.category === 'food' ? 'bg-orange-400' : 
-                item.category === 'transport' ? 'bg-blue-400' : 'bg-stone-400'
+                item.category === 'transport' ? 'bg-blue-400' :
+                item.category === 'shop' ? 'bg-purple-400' : 'bg-stone-400'
               }`} />
               <div className="flex flex-col">
                   <span className="text-stone-700 font-medium">{item.desc}</span>
@@ -533,7 +589,7 @@ const BudgetTool = ({ user }) => {
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <div className="text-stone-800 font-mono text-sm">₩{item.amount.toLocaleString()}</div>
-                <div className="text-stone-400 text-xs font-medium">NT$ {Math.round(item.amount * KRW_TO_TWD_RATE).toLocaleString()}</div>
+                <div className="text-stone-400 text-xs font-medium">NT$ {Math.round(item.amount * exchangeRate).toLocaleString()}</div>
               </div>
               <button onClick={() => handleDelete(item.id)} className="text-stone-300 hover:text-red-400">
                 <Trash2 size={16} />
@@ -548,20 +604,6 @@ const BudgetTool = ({ user }) => {
     </div>
   );
 };
-
-const InfoCard = ({ icon: Icon, title, content, subContent, colorClass }) => (
-  <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex items-start gap-4">
-    <div className={`p-3 rounded-full ${colorClass} bg-opacity-10 shrink-0`}>
-      <Icon size={20} className={colorClass.replace('bg-', 'text-')} />
-    </div>
-    <div>
-      <h4 className="font-bold text-stone-800 mb-1">{title}</h4>
-      <p className="text-stone-600 text-sm mb-1">{content}</p>
-      {subContent && <p className="text-stone-400 text-xs">{subContent}</p>}
-    </div>
-  </div>
-);
-
 
 // --- Main App Component ---
 
@@ -776,12 +818,35 @@ const App = () => {
               <div className="grid gap-4">
                 <InfoCard 
                   icon={Plane}
-                  title="去程航班 (模擬)"
-                  content="2026/01/28 | TPE -> ICN"
-                  subContent="08:00 出發"
+                  title="去程航班 LJ736"
+                  content="2026/01/28 | RMQ 11:00 -> ICN 14:40"
+                  subContent="第一航廈/經濟艙/行李 15kg"
                   colorClass="bg-blue-500 text-blue-500"
                 />
-                 {/* ... 其他 InfoCards ... */}
+                 <InfoCard 
+                  icon={Plane}
+                  title="回程航班 LJ737"
+                  content="2026/02/02 | ICN 15:20 -> RMQ 17:30"
+                  subContent="第二航廈/經濟艙/行李 15kg"
+                  colorClass="bg-blue-500 text-blue-500"
+                />
+                <InfoCard
+                  icon={bed}
+                  title="住宿資訊"
+                  content="Fraser Place Central Seoul"
+                  subContent="地址: 78, Tongil-ro, Jung District, Seoul | 電話: +82 2-2220-8888 <br/>
+                  入住: 2026/01/28 15:00 | 退房: 2026/02/02 11:00"
+                  colorClass="bg-green-500 text-green-500"
+
+                  ></InfoCard>
+                <InfoCard 
+                  icon={Phone}
+                  title="緊急聯絡"
+                  content="外交部旅外救助: +82-10-9093-8738"
+                  subContent="韓國報警 112 / 火警 119"
+                  colorClass="bg-red-500 text-red-500"
+                />
+
               </div>
             </section>
             
