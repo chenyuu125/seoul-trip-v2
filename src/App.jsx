@@ -16,7 +16,12 @@ import {
   Snowflake,
   Info,
   Calendar,
-  CreditCard
+  CreditCard,
+  X, 
+  Save,
+  Edit2, // 新增編輯圖示
+  Map,   // 新增地址圖示
+  FileText // 新增描述圖示
 } from 'lucide-react';
 
 // Firebase Imports
@@ -43,7 +48,6 @@ import {
   arrayRemove,
   getDoc 
 } from 'firebase/firestore';
-import { X, Save } from 'lucide-react'; // 新增圖示
 
 // --- Configuration: Fixed Date Range ---
 const TRIP_DATES = [
@@ -55,6 +59,10 @@ const TRIP_DATES = [
   { day: 6, date: "2/02 (一)", fullDate: "2026-02-02", location: "返程", defaultWeather: { temp: "2°C", condition: "Sunny", icon: "sun" } },
 ];
 
+// --- Constants ---
+const KRW_TO_TWD_RATE = 0.024; // 匯率設定：1 韓元 = 0.024 台幣
+
+// --- Firebase Configuration & Initialization ---
 const firebaseConfig = {
   apiKey: "AIzaSyDQF7qJgpfKI5tWgOeYJbuU6UM7yrDn6jU",
   authDomain: "seoul-trip-e1b36.firebaseapp.com",
@@ -64,10 +72,11 @@ const firebaseConfig = {
   appId: "1:206367773846:web:0ad35c13c9e76045a01eb7"
 };
 
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = "seoul-2026";
+const appId = "seoul-2026"; 
 
 // --- Components ---
 
@@ -85,25 +94,23 @@ const Tag = ({ children, color }) => {
   );
 };
 
-const ActivityCard = ({ activity }) => {
+// 1. 修改後的行程卡片：隱藏描述，點擊開啟詳情
+const ActivityCard = ({ activity, onClick }) => {
   const iconMap = {
     food: <Utensils size={16} className="text-orange-400" />,
     transport: <Train size={16} className="text-blue-400" />,
     sight: <Camera size={16} className="text-emerald-400" />,
   };
 
-  const handleNavClick = () => {
-    // Mobile-first navigation logic
-    const query = encodeURIComponent(activity.location);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
-  };
-
   return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 mb-4 relative overflow-hidden group">
-      {/* Timeline Connector (Visual only) */}
+    <div 
+      onClick={onClick}
+      className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 mb-3 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all hover:shadow-md"
+    >
+      {/* Timeline Connector */}
       <div className="absolute left-4 top-0 bottom-0 w-[1px] bg-stone-100 -z-10" />
 
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3">
         {/* Time & Icon */}
         <div className="flex flex-col items-center gap-2 min-w-[50px]">
           <span className="text-xs font-semibold text-stone-400 font-mono">{activity.time}</span>
@@ -112,48 +119,277 @@ const ActivityCard = ({ activity }) => {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1">
+        {/* Content (預覽模式) */}
+        <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
-            <h3 className="font-bold text-stone-800 text-lg leading-tight mb-1">{activity.title}</h3>
+            <h3 className="font-bold text-stone-800 text-lg leading-tight mb-1 truncate">{activity.title}</h3>
           </div>
           
-          <p className="text-sm text-stone-500 mb-3 leading-relaxed">{activity.description}</p>
-
-          {/* Smart Tags / Highlights */}
-          <div className="flex flex-wrap mb-2">
-            {activity.tags?.map((tag, i) => (
-              <Tag key={i} color={tag.color}>{tag.label}</Tag>
-            ))}
+          <div className="text-xs text-stone-400 mb-2 flex items-center gap-1">
+             <MapPin size={10} /> {activity.location}
           </div>
 
-          {/* Guide Highlights (Story/Strategy) */}
-          {activity.highlights && (
-            <div className="bg-stone-50 rounded-lg p-3 text-xs text-stone-600 mb-3 border border-stone-100/50">
-              <div className="font-bold text-stone-400 mb-1 flex items-center gap-1">
-                <Info size={10} /> 攻略筆記
+          {/* 顯示攻略筆記 (Highlights) */}
+          {activity.highlights && activity.highlights.length > 0 && (
+            <div className="bg-orange-50/50 rounded-lg p-2 text-xs text-stone-600 border border-orange-100/50">
+              <div className="font-bold text-orange-400 mb-1 flex items-center gap-1 text-[10px]">
+                <Info size={10} /> 攻略重點
               </div>
-              <ul className="list-disc list-inside space-y-1">
-                {activity.highlights.map((h, i) => (
-                  <li key={i}>
-                    <span dangerouslySetInnerHTML={{ 
-                      __html: h.replace(/(必吃|必買|必點)/g, '<span class="text-red-500 font-bold">$1</span>') 
-                    }} />
-                  </li>
+              <ul className="list-disc list-inside space-y-0.5 truncate">
+                {activity.highlights.slice(0, 2).map((h, i) => (
+                   <span key={i} className="mr-2">• {h}</span>
                 ))}
+                {activity.highlights.length > 2 && <span>...</span>}
               </ul>
             </div>
           )}
-
-          {/* Navigation Button */}
-          <button 
-            onClick={handleNavClick}
-            className="flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50/50 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors w-full justify-center sm:w-auto mt-2"
-          >
-            <Navigation size={14} />
-            開始導航 ({activity.location})
-          </button>
         </div>
+        
+        <div className="self-center">
+            <ChevronRight size={16} className="text-stone-300" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 新增：詳細資訊 Modal (懸浮頁面)
+const ActivityDetailModal = ({ activity, isOpen, onClose, onEdit }) => {
+  if (!isOpen || !activity) return null;
+
+  const handleNavClick = () => {
+    // 優先使用地址，沒有則使用地點名稱
+    const query = encodeURIComponent(activity.address || activity.location);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
+      <div 
+        className="bg-white w-full max-w-md h-[85vh] sm:h-auto sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-y-auto flex flex-col animate-slideUp" 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-stone-50 p-6 pb-8 border-b border-stone-100 relative">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-stone-200 rounded-full sm:hidden"></div>
+            <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-sm text-stone-400 hover:text-stone-800">
+                <X size={20} />
+            </button>
+            <div className="text-sm font-bold text-blue-600 mb-2 tracking-wide uppercase">{activity.type === 'food' ? '美食' : activity.type === 'transport' ? '交通' : '景點'} • {activity.time}</div>
+            <h2 className="text-3xl font-bold text-stone-900 leading-tight">{activity.title}</h2>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-6 flex-1">
+            
+            {/* 地點與導航 */}
+            <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                    <div className="p-2 bg-stone-100 rounded-lg shrink-0"><MapPin size={20} className="text-stone-600"/></div>
+                    <div>
+                        <div className="font-bold text-stone-800">{activity.location}</div>
+                        {activity.address && <div className="text-sm text-stone-500 mt-1">{activity.address}</div>}
+                    </div>
+                </div>
+                <button 
+                    onClick={handleNavClick}
+                    className="flex items-center justify-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 w-full py-3 rounded-xl transition-colors shadow-blue-200 shadow-lg"
+                >
+                    <Navigation size={16} /> 開啟 Google Map 導航
+                </button>
+            </div>
+
+            <hr className="border-stone-100" />
+
+            {/* 描述 */}
+            {activity.description && (
+                <div>
+                    <h4 className="font-bold text-stone-800 mb-2 flex items-center gap-2">
+                        <FileText size={18} className="text-stone-400"/> 
+                        詳細說明
+                    </h4>
+                    <p className="text-stone-600 leading-relaxed whitespace-pre-wrap">{activity.description}</p>
+                </div>
+            )}
+
+            {/* 攻略筆記 */}
+            {activity.highlights && activity.highlights.length > 0 && (
+                <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                     <h4 className="font-bold text-orange-600 mb-3 flex items-center gap-2">
+                        <Info size={18} /> 
+                        攻略筆記
+                    </h4>
+                    <ul className="space-y-2">
+                        {activity.highlights.map((h, i) => (
+                             <li key={i} className="flex items-start gap-2 text-stone-700 text-sm">
+                                <span className="text-orange-400 mt-1">•</span>
+                                {h}
+                             </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-stone-100 flex gap-3 bg-stone-50/50">
+            <button 
+                onClick={() => { onClose(); onEdit(activity); }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50"
+            >
+                <Edit2 size={18} /> 編輯行程
+            </button>
+        </div>
+      </div>
+      <style>{`
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .animate-slideUp {
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// 2. 更新後的表單 Modal：支援新增與編輯、地址、攻略筆記
+const ActivityFormModal = ({ isOpen, onClose, onSave, dateLabel, initialData }) => {
+  const [formData, setFormData] = useState({
+    time: '10:00',
+    title: '',
+    type: 'sight',
+    description: '',
+    location: '',
+    address: '', // 新增地址
+    highlightsStr: '' // 用字串來處理多行攻略
+  });
+
+  // 當開啟或 initialData 改變時，重置表單
+  useEffect(() => {
+    if (isOpen) {
+        if (initialData) {
+            // 編輯模式：填入現有資料
+            setFormData({
+                ...initialData,
+                highlightsStr: initialData.highlights ? initialData.highlights.join('\n') : ''
+            });
+        } else {
+            // 新增模式：重置
+            setFormData({ time: '10:00', title: '', type: 'sight', description: '', location: '', address: '', highlightsStr: '' });
+        }
+    }
+  }, [isOpen, initialData]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // 將攻略筆記字串轉回陣列 (過濾空行)
+    const highlights = formData.highlightsStr.split('\n').map(s => s.trim()).filter(s => s !== '');
+
+    const activityData = {
+      id: initialData ? initialData.id : Date.now().toString(), // 編輯用原 ID，新增用新 ID
+      time: formData.time,
+      title: formData.title,
+      type: formData.type,
+      description: formData.description,
+      location: formData.location,
+      address: formData.address,
+      highlights: highlights,
+      tags: [] 
+    };
+    
+    onSave(activityData, !!initialData); // 第二個參數表示是否為編輯模式
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+        <div className="bg-stone-800 text-white p-4 flex justify-between items-center sticky top-0 z-10">
+          <h3 className="font-bold">{initialData ? '編輯行程' : '新增活動'} - {dateLabel}</h3>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <input 
+              type="time" 
+              required
+              value={formData.time}
+              onChange={e => setFormData({...formData, time: e.target.value})}
+              className="p-2 border rounded-lg bg-stone-50"
+            />
+            <select 
+              value={formData.type}
+              onChange={e => setFormData({...formData, type: e.target.value})}
+              className="col-span-2 p-2 border rounded-lg bg-stone-50"
+            >
+              <option value="sight">景點 (Sight)</option>
+              <option value="food">美食 (Food)</option>
+              <option value="transport">交通 (Transport)</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+             <label className="text-xs text-stone-400 font-bold ml-1">標題</label>
+             <input 
+                placeholder="例: 廣藏市場"
+                required
+                value={formData.title}
+                onChange={e => setFormData({...formData, title: e.target.value})}
+                className="w-full p-2 border rounded-lg bg-stone-50"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+                 <label className="text-xs text-stone-400 font-bold ml-1">地點名稱</label>
+                 <input 
+                    placeholder="例: 首爾塔"
+                    value={formData.location}
+                    onChange={e => setFormData({...formData, location: e.target.value})}
+                    className="w-full p-2 border rounded-lg bg-stone-50"
+                />
+            </div>
+             <div className="space-y-1">
+                 <label className="text-xs text-stone-400 font-bold ml-1">地址 (導航用)</label>
+                 <input 
+                    placeholder="例: 105 Namsangongwon"
+                    value={formData.address}
+                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    className="w-full p-2 border rounded-lg bg-stone-50"
+                />
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+             <label className="text-xs text-stone-400 font-bold ml-1">詳細描述</label>
+             <textarea 
+                placeholder="描述與備註..."
+                rows={2}
+                value={formData.description}
+                onChange={e => setFormData({...formData, description: e.target.value})}
+                className="w-full p-2 border rounded-lg bg-stone-50"
+            />
+          </div>
+
+          <div className="space-y-1">
+             <label className="text-xs text-orange-400 font-bold ml-1">攻略筆記 (一行一點)</label>
+             <textarea 
+                placeholder="必點：綠豆煎餅&#10;記得帶現金"
+                rows={3}
+                value={formData.highlightsStr}
+                onChange={e => setFormData({...formData, highlightsStr: e.target.value})}
+                className="w-full p-2 border rounded-lg bg-orange-50 border-orange-100"
+            />
+          </div>
+
+          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 mt-4">
+            <Save size={18} /> {initialData ? '更新行程' : '儲存行程'}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -172,7 +408,7 @@ const WeatherWidget = ({ weather, location }) => (
   </div>
 );
 
-// --- Budget Tool (Firebase Integrated) ---
+// 3. 更新後的記帳工具：顯示匯率與台幣換算
 const BudgetTool = ({ user }) => {
   const [items, setItems] = useState([]);
   const [desc, setDesc] = useState('');
@@ -184,11 +420,8 @@ const BudgetTool = ({ user }) => {
   useEffect(() => {
     if (!user) return;
     const q = collection(db, 'artifacts', appId, 'users', user.uid, 'expenses');
-    // Rule 2: No complex ordering in query to prevent index errors for this demo
-    // We will sort in client side
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Client side sort by created time
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setItems(data);
     }, (error) => {
@@ -230,10 +463,18 @@ const BudgetTool = ({ user }) => {
   return (
     <div className="space-y-6">
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100">
-        <h3 className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-4">預算管理 (Budget)</h3>
-        <div className="text-3xl font-light text-stone-800 mb-6">
-          ₩ {total.toLocaleString()}
-          <span className="text-sm text-stone-400 ml-2">已支出</span>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-stone-400 text-xs font-bold uppercase tracking-widest">預算管理 (Budget)</h3>
+            <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-1 rounded">匯率: {KRW_TO_TWD_RATE}</span>
+        </div>
+        
+        <div className="mb-6">
+            <div className="text-3xl font-light text-stone-800">
+                ₩ {total.toLocaleString()}
+            </div>
+            <div className="text-sm text-stone-400 font-medium mt-1">
+                ≈ NT$ {Math.round(total * KRW_TO_TWD_RATE).toLocaleString()}
+            </div>
         </div>
 
         <form onSubmit={handleAdd} className="space-y-3">
@@ -241,7 +482,7 @@ const BudgetTool = ({ user }) => {
             <input 
               value={desc}
               onChange={e => setDesc(e.target.value)}
-              placeholder="項目 (如: 晚餐)"
+              placeholder="項目"
               className="col-span-2 p-3 bg-stone-50 rounded-lg text-sm outline-none focus:ring-1 focus:ring-stone-300"
             />
             <select 
@@ -285,10 +526,15 @@ const BudgetTool = ({ user }) => {
                 item.category === 'food' ? 'bg-orange-400' : 
                 item.category === 'transport' ? 'bg-blue-400' : 'bg-stone-400'
               }`} />
-              <span className="text-stone-700 font-medium">{item.desc}</span>
+              <div className="flex flex-col">
+                  <span className="text-stone-700 font-medium">{item.desc}</span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-stone-600 font-mono">₩{item.amount.toLocaleString()}</span>
+              <div className="text-right">
+                <div className="text-stone-800 font-mono text-sm">₩{item.amount.toLocaleString()}</div>
+                <div className="text-stone-400 text-xs font-medium">NT$ {Math.round(item.amount * KRW_TO_TWD_RATE).toLocaleString()}</div>
+              </div>
               <button onClick={() => handleDelete(item.id)} className="text-stone-300 hover:text-red-400">
                 <Trash2 size={16} />
               </button>
@@ -316,99 +562,27 @@ const InfoCard = ({ icon: Icon, title, content, subContent, colorClass }) => (
   </div>
 );
 
-const AddActivityModal = ({ isOpen, onClose, onSave, dateLabel }) => {
-  const [formData, setFormData] = useState({
-    time: '10:00',
-    title: '',
-    type: 'sight',
-    description: '',
-    location: '',
-  });
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newActivity = {
-      id: Date.now().toString(),
-      ...formData,
-      tags: [],
-      highlights: []
-    };
-    onSave(newActivity);
-    // 重置表單
-    setFormData({ time: '10:00', title: '', type: 'sight', description: '', location: '' });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fadeIn">
-        <div className="bg-stone-800 text-white p-4 flex justify-between items-center">
-          <h3 className="font-bold">新增活動至 {dateLabel}</h3>
-          <button onClick={onClose}><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <input 
-              type="time" 
-              required
-              value={formData.time}
-              onChange={e => setFormData({...formData, time: e.target.value})}
-              className="p-2 border rounded-lg bg-stone-50"
-            />
-            <select 
-              value={formData.type}
-              onChange={e => setFormData({...formData, type: e.target.value})}
-              className="col-span-2 p-2 border rounded-lg bg-stone-50"
-            >
-              <option value="sight">景點 (Sight)</option>
-              <option value="food">美食 (Food)</option>
-              <option value="transport">交通 (Transport)</option>
-            </select>
-          </div>
-          <input 
-            placeholder="標題 (例: 廣藏市場)"
-            required
-            value={formData.title}
-            onChange={e => setFormData({...formData, title: e.target.value})}
-            className="w-full p-2 border rounded-lg bg-stone-50"
-          />
-          <input 
-            placeholder="地點 (Google Map 搜尋用)"
-            value={formData.location}
-            onChange={e => setFormData({...formData, location: e.target.value})}
-            className="w-full p-2 border rounded-lg bg-stone-50"
-          />
-          <textarea 
-            placeholder="描述與備註..."
-            rows={3}
-            value={formData.description}
-            onChange={e => setFormData({...formData, description: e.target.value})}
-            className="w-full p-2 border rounded-lg bg-stone-50"
-          />
-          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
-            <Save size={18} /> 儲存行程
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 // --- Main App Component ---
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('itinerary');
-  const [currentDayIndex, setCurrentDayIndex] = useState(0); // 改用 Index 控制比較方便 (0-5)
+  const [currentDayIndex, setCurrentDayIndex] = useState(0); 
   const [user, setUser] = useState(null);
   
-  // 新增：行程資料狀態 (Map 結構: dateString -> activities array)
   const [activitiesMap, setActivitiesMap] = useState({});
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // 控制 Form Modal (新增/編輯共用)
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  // 控制 Detail Modal
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  
+  // 紀錄當前正在操作的 Activity
+  const [selectedActivity, setSelectedActivity] = useState(null); 
+  // 紀錄當前要編輯的資料 (如果為 null 則為新增模式)
+  const [editingData, setEditingData] = useState(null);
 
-  // Auth Effect (保持不變)
+  // Auth Effect
   useEffect(() => {
-    // ... (原本的 Auth 程式碼) ...
     const initAuth = async () => {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
@@ -421,39 +595,48 @@ const App = () => {
       return () => unsubscribe();
   }, []);
 
-  // 新增：Firestore 行程監聽器
+  // Firestore 監聽
   useEffect(() => {
-    // 監聽 artifacts/{appId}/itineraries 下的所有文件
     const q = collection(db, 'artifacts', appId, 'itineraries');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newMap = {};
       snapshot.forEach(doc => {
-        // Doc ID 就是日期字串 (例如 "2026-01-28")
-        // 我們儲存 activities 陣列
         newMap[doc.id] = doc.data().activities || [];
       });
       setActivitiesMap(newMap);
-    });
+    }, (err) => console.log("Firestore sync error:", err)); // 避免沒資料時報錯
     return () => unsubscribe();
   }, []);
 
-  // 取得當前選定日期的完整資料
   const currentDayConfig = TRIP_DATES[currentDayIndex];
   
-  // 合併：如果 Firestore 有資料就用 Firestore 的，否則空陣列
-  // 並根據時間排序
-  const currentActivities = (activitiesMap[currentDayConfig.fullDate] || []).sort((a, b) => 
+  const currentDayFirestoreData = activitiesMap[currentDayConfig.fullDate];
+  const currentWeather = currentDayFirestoreData?.weather || currentDayConfig.defaultWeather;
+  const currentActivities = (currentDayFirestoreData || []).sort((a, b) => 
     a.time.localeCompare(b.time)
   );
 
-  const currentDayFirestoreData = activitiesMap[currentDayConfig.fullDate];
-  // 如果 Firestore 有存天氣就用 Firestore 的，否則用預設的
-  const currentWeather = currentDayFirestoreData?.weather || currentDayConfig.defaultWeather; 
-  // ----------------
+  // 打開詳細頁面
+  const handleOpenDetail = (activity) => {
+    setSelectedActivity(activity);
+    setDetailModalOpen(true);
+  };
 
+  // 打開新增視窗
+  const handleOpenAdd = () => {
+    setEditingData(null); // 清空編輯資料代表新增
+    setFormModalOpen(true);
+  };
 
-  // 處理新增活動
-  const handleSaveActivity = async (newActivity) => {
+  // 從詳細頁面切換到編輯視窗
+  const handleOpenEdit = (activity) => {
+    setDetailModalOpen(false); // 關閉詳細
+    setEditingData(activity); // 設定編輯對象
+    setFormModalOpen(true); // 開啟編輯
+  };
+
+  // 處理儲存 (新增或更新)
+  const handleSaveActivity = async (activityData, isEditMode) => {
     if (!user) {
       alert("請先登入或等待連線...");
       return;
@@ -463,19 +646,30 @@ const App = () => {
     const docRef = doc(db, 'artifacts', appId, 'itineraries', dateDocId);
 
     try {
-      // 使用 setDoc 與 merge: true，這樣如果當天文件不存在會自動建立
-      await setDoc(docRef, {
-        activities: arrayUnion(newActivity)
-      }, { merge: true });
+      if (isEditMode) {
+        // 編輯模式：先刪除舊的，再加入新的 (因為 Firestore 陣列更新不易)
+        // 注意：這裡需要取得完整的新陣列
+        const updatedActivities = currentActivities.filter(a => a.id !== activityData.id);
+        updatedActivities.push(activityData);
+        
+        await setDoc(docRef, {
+            activities: updatedActivities
+        }, { merge: true });
+
+      } else {
+        // 新增模式
+        await setDoc(docRef, {
+            activities: arrayUnion(activityData)
+        }, { merge: true });
+      }
       
-      setIsAddModalOpen(false);
+      setFormModalOpen(false);
     } catch (error) {
-      console.error("Error adding activity:", error);
+      console.error("Error saving activity:", error);
       alert("儲存失敗，請檢查網路");
     }
   };
 
-  // 處理刪除活動 (傳遞給 ActivityCard 的功能，您可以選擇性加入)
   const handleDeleteActivity = async (activityToDelete) => {
     if(!confirm("確定要刪除這個行程嗎？")) return;
     const dateDocId = currentDayConfig.fullDate;
@@ -484,21 +678,21 @@ const App = () => {
         await updateDoc(docRef, {
             activities: arrayRemove(activityToDelete)
         });
+        setDetailModalOpen(false); // 關閉詳細頁
     } catch (e) { console.error(e); }
   };
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans pb-24 sm:pb-0 sm:pl-20 text-stone-800">
       
-      {/* Mobile Header (更新標題) */}
+      {/* Mobile Header */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-stone-100 px-6 py-4 flex justify-between items-center sm:hidden">
         <h1 className="text-lg font-bold tracking-tight text-stone-800">SEOUL 2026</h1>
         <div className="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded">Ski Trip</div>
       </div>
 
-      {/* Sidebar Navigation (保持不變) */}
+      {/* Sidebar Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 px-6 py-3 z-50 sm:top-0 sm:bottom-auto sm:right-auto sm:w-20 sm:h-screen sm:flex-col sm:border-t-0 sm:border-r sm:py-8 sm:px-0 flex justify-around items-center sm:justify-start sm:gap-8">
-         {/* ... (原本的 Nav buttons) ... */}
          <button 
           onClick={() => setActiveTab('itinerary')}
           className={`flex flex-col items-center gap-1 sm:w-full sm:py-2 transition-colors ${activeTab === 'itinerary' ? 'text-stone-900' : 'text-stone-400'}`}
@@ -520,7 +714,7 @@ const App = () => {
         
         {activeTab === 'itinerary' && (
           <div className="space-y-6 fade-in">
-            {/* Day Selector (更新邏輯) */}
+            {/* Day Selector */}
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {TRIP_DATES.map((d, index) => (
                 <button
@@ -538,11 +732,8 @@ const App = () => {
               ))}
             </div>
 
-            {/* Weather Widget (使用骨架中的預設天氣) */}
-            <WeatherWidget weather={currentWeather} location={currentDayConfig.location} 
-/>
+            <WeatherWidget weather={currentWeather} location={currentDayConfig.location} />
 
-            {/* Timeline Activities */}
             <div className="space-y-0 min-h-[200px]">
               {currentActivities.length === 0 ? (
                 <div className="text-center py-10 text-stone-400 border-2 border-dashed border-stone-200 rounded-xl">
@@ -552,11 +743,14 @@ const App = () => {
               ) : (
                 currentActivities.map(activity => (
                   <div key={activity.id} className="relative group">
-                     <ActivityCard activity={activity} />
-                     {/* 刪除按鈕 (Hover 時顯示) */}
+                     {/* 傳遞點擊事件以打開詳細頁 */}
+                     <ActivityCard 
+                        activity={activity} 
+                        onClick={() => handleOpenDetail(activity)}
+                     />
                      <button 
-                        onClick={() => handleDeleteActivity(activity)}
-                        className="absolute top-2 right-2 p-2 bg-white/90 rounded-full text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteActivity(activity); }}
+                        className="absolute top-2 right-2 p-2 bg-white/90 rounded-full text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-20"
                      >
                         <Trash2 size={14} />
                      </button>
@@ -565,9 +759,8 @@ const App = () => {
               )}
             </div>
 
-            {/* Float Add Button (新增按鈕) */}
             <button 
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={handleOpenAdd}
               className="fixed bottom-20 right-6 sm:bottom-10 sm:right-10 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg shadow-blue-200 transition-transform active:scale-90 z-30 flex items-center gap-2"
             >
               <Plus size={24} />
@@ -576,27 +769,19 @@ const App = () => {
           </div>
         )}
 
-        {/* Tools Tab (保持不變) */}
         {activeTab === 'tools' && (
           <div className="space-y-8 fade-in">
-             {/* ... (原本的 Tools 內容，注意 InfoCard 內的日期可以手動更新一下) ... */}
              <section>
               <h2 className="text-xl font-bold mb-4 px-1">旅程資訊</h2>
               <div className="grid gap-4">
                 <InfoCard 
                   icon={Plane}
-                  title="去程航班 LJ736"
-                  content="2026/01/28 | RMQ 11:00 -> ICN 14:40"
-                  subContent="航廈/經濟艙/行李 kg"
+                  title="去程航班 (模擬)"
+                  content="2026/01/28 | TPE -> ICN"
+                  subContent="08:00 出發"
                   colorClass="bg-blue-500 text-blue-500"
                 />
-                <InfoCard
-                  icon={Plane}
-                  title="回程航班 LJ737"
-                  content="2026/02/02 | ICN 15:20 -> RMQ 17:30"
-                  subContent="航廈/經濟艙/行李 kg"
-                  colorClass="bg-blue-500 text-blue-500"
-                />
+                 {/* ... 其他 InfoCards ... */}
               </div>
             </section>
             
@@ -612,15 +797,22 @@ const App = () => {
 
       </main>
 
-      {/* Modal Render */}
-      <AddActivityModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+      {/* Modals */}
+      <ActivityFormModal 
+        isOpen={formModalOpen} 
+        onClose={() => setFormModalOpen(false)} 
         onSave={handleSaveActivity}
         dateLabel={currentDayConfig.date}
+        initialData={editingData} // 傳入要編輯的資料
       />
 
-      {/* Global Styles for Scrollbar & Animation */}
+      <ActivityDetailModal 
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        activity={selectedActivity}
+        onEdit={handleOpenEdit} // 傳入編輯函式
+      />
+
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
@@ -640,6 +832,5 @@ const App = () => {
     </div>
   );
 };
-
 
 export default App;
