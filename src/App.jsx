@@ -846,7 +846,7 @@ const App = () => {
                   colorClass="bg-blue-500 text-blue-500"
                 />
                 <InfoCard
-                  icon={bed}
+                  icon={Bed}
                   title="住宿資訊"
                   content="Fraser Place Central Seoul"
                   subContent="地址: 78, Tongil-ro, Jung District, Seoul | 電話: +82 2-2220-8888 <br/>
