@@ -292,14 +292,14 @@ const ActivityFormModal = ({ isOpen, onClose, onSave, dateLabel, initialData }) 
 
     const activityData = {
       id: initialData ? initialData.id : Date.now().toString(), // 編輯用原 ID，新增用新 ID
-      time: formData.time,
-      title: formData.title,
-      type: formData.type,
-      description: formData.description,
-      location: formData.location,
-      address: formData.address,
+      time: formData.time || '',
+      title: formData.title || '',
+      type: formData.type || 'sight',
+      description: formData.description || '',
+      location: formData.location || '',
+      address: formData.address || '', 
       highlights: highlights,
-      tags: [] 
+      tags: []
     };
     
     onSave(activityData, !!initialData); // 第二個參數表示是否為編輯模式
